@@ -1,0 +1,30 @@
+{
+  "name": "random-pic-api",
+  "version": "1.0.0",
+  "description": "随机图片API，支持部署在Cloudflare Workers/EdgeOne/ESA/Vercel Pages",
+  "main": "src/index.ts",
+  "scripts": {
+    "generate": "node scripts/generate-image-list.js",
+    "dev": "npm run generate && wrangler dev",
+    "deploy": "npm run generate && wrangler publish",
+    "build": "npm run generate && tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "random-image",
+    "api",
+    "cloudflare",
+    "vercel",
+    "edge-computing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.19.0"
+  },
+  "dependencies": {}
+}
+
