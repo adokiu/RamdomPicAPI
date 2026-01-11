@@ -1,0 +1,24 @@
+{
+  "imagesDir": "public/images/mb-miku",
+  "maxFileSizeKB": 1024,
+  "minShortEdge": 1440,
+  "targetShortEdge": 1440,
+  "defaultQuality": 100,
+  "minQuality": 20,
+  "maxQuality": 85,
+  "speedNormal": 6,
+  "speedGpu": 6,
+  "randomNameLength": 8,
+  "description": {
+    "imagesDir": "图片目录路径（相对于项目根目录）",
+    "maxFileSizeKB": "最大文件大小限制（单位：KB）",
+    "minShortEdge": "最小短边阈值（px），超过此值需要压缩分辨率",
+    "targetShortEdge": "目标短边大小（px），压缩后的短边目标值",
+    "defaultQuality": "默认图片质量（0-100，数字越大质量越高）",
+    "minQuality": "最小图片质量（压缩时使用）",
+    "maxQuality": "最大图片质量（压缩时使用）",
+    "speedNormal": "普通模式编码速度（0-6，数字越大速度越快）",
+    "speedGpu": "GPU模式编码速度（0-6，数字越大速度越快）",
+    "randomNameLength": "随机文件名长度"
+  }
+}

@@ -8,7 +8,10 @@
     "dev": "npm run generate && wrangler dev",
     "deploy": "npm run generate && wrangler publish",
     "build": "npm run generate && tsc",
-    "type-check": "tsc --noEmit"
+    "build:pages": "npm run generate && npm run type-check",
+    "type-check": "tsc --noEmit",
+    "prebuild": "npm run generate",
+    "predeploy": "npm run generate"
   },
   "keywords": [
     "random-image",

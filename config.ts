@@ -5,6 +5,7 @@
 export const imageConfig = {
   // 访问 /a 时，从 /images/a 目录随机选择图片
   '/pc-miku': '/images/pc-miku',
+  '/mb-miku': '/images/mb-miku',
 } as const;
 
 // 支持的图片格式

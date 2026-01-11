@@ -1,6 +1,6 @@
 /**
  * Vercel Edge Function 实现
- * 适用于边缘计算环境
+ * 适用于边缘计算环境（包括 Cloudflare Pages）
  */
 import { imageConfig, cacheMaxAge } from '../config';
 import { imageList } from '../image-list';
