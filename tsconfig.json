@@ -13,7 +13,7 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src/**/*", "api/**/*", "functions/**/*", "config.ts", "image-list.ts"],
+  "include": ["src/**/*", "functions/**/*", "config.ts", "image-list.ts"],
   "exclude": ["node_modules"]
 }
 
