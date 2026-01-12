@@ -6,7 +6,7 @@
  */
 import { imageConfig, storageConfig } from '../config';
 import { imageList } from '../image-list';
-import { createImageResponse, fixImageResponseHeaders } from '../src/utils';
+import { createImageResponse, fixImageResponseHeaders, generateApiDocPage, generateGalleryPage } from '../src/utils';
 
 // R2 存储桶类型定义
 interface R2Bucket {
@@ -156,6 +156,17 @@ export async function onRequest(
   const pathSegments = Array.isArray(params.path) ? params.path : [params.path];
   const paramPath = `/${pathSegments[0]}`;
   
+  // 根路径返回首页
+  if (pathname === '/' || pathSegments[0] === '' || pathSegments.length === 0) {
+    const baseUrl = `${url.protocol}//${url.host}`;
+    return generateApiDocPage(baseUrl);
+  }
+  
+  // 图库路径
+  if (pathname === '/gallery' || pathSegments[0] === 'gallery') {
+    return generateGalleryPage(url.origin);
+  }
+  
   // 如果路径以 /images/ 开头，说明是静态文件请求
   if (pathname.startsWith('/images/')) {
     const filename = pathname.split('/').pop() || '';
@@ -190,7 +201,6 @@ export async function onRequest(
           'Content-Length': object.size.toString(),
           'Cache-Control': 'public, max-age=31536000, immutable',
           'CDN-Cache-Control': 'max-age=31536000',
-          'Content-Disposition': 'inline',
         },
       });
     } else {
