@@ -242,6 +242,7 @@ export function generateApiDocPage(baseUrl: string): Response {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Yao の API</title>
+  <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1570,6 +1571,7 @@ export function generateGalleryPage(baseUrl: string): Response {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>图库 - Yao の API</title>
+  <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1895,6 +1897,43 @@ export function generateGalleryPage(baseUrl: string): Response {
       });
     });
     
+    // Umami 上报防盗刷保护
+    const ALLOWED_HOSTS = ['api.yaooa.cn', 'localhost', '127.0.0.1'];
+    const trackedImages = new Set();
+    
+    // Umami 上报函数（带防盗刷）
+    function trackImageView(imagePath) {
+      try {
+        // 防盗刷：检查当前页面域名是否是允许的域名
+        const currentHost = location.hostname;
+        if (!ALLOWED_HOSTS.some(h => currentHost === h || currentHost.endsWith('.' + h))) {
+          console.warn('[Umami] 非法域名，拒绝上报:', currentHost);
+          return;
+        }
+        // 防盗刷：检查是否已上报过（同一图片不重复上报）
+        if (trackedImages.has(imagePath)) return;
+        trackedImages.add(imagePath);
+        
+        const payload = {
+          type: 'event',
+          payload: {
+            website: 'f3200a83-8a62-463f-afb1-72f029ee2115',
+            url: imagePath,
+            hostname: location.hostname,
+            referrer: document.referrer || '',
+            title: imagePath.split('/').pop() || imagePath,
+            language: navigator.language?.split('-')[0] || 'en',
+            event_name: 'pageview',
+          },
+        };
+        fetch('https://umami.2o.nz/api/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    
     function loadMore(index) {
       if (isLoading || !pageState[index].hasMore) return;
       isLoading = true;
@@ -1918,6 +1957,11 @@ export function generateGalleryPage(baseUrl: string): Response {
             <span class="filename">\${img}</span>
           </div>
         \`;
+        // 图片加载完成时上报 umami
+        const imgEl = item.querySelector('img');
+        imgEl.addEventListener('load', () => {
+          trackImageView(baseUrl + img);
+        });
         item.addEventListener('click', () => {
           window.open(baseUrl + img, '_blank');
         });

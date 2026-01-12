@@ -186,14 +186,13 @@ export async function onRequest(
     const randomIndex = Math.floor(Math.random() * imageListArray.length);
     const selectedImage = imageListArray[randomIndex];
     const imagePath = `${resolvedDir}/${selectedImage}`;
-    const imageUrl = `${url.origin}${imagePath}`;
     
-    // 无论任何情况都返回 302 重定向到实际图片 URL
+    // 返回 302 重定向到实际图片路径（只改变路径，不改变 host）
     // 禁用缓存，确保每次访问都能随机选择不同的图片
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': imageUrl,
+        'Location': imagePath,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',

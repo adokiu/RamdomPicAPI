@@ -70,10 +70,10 @@ export default async function handler(
       return createErrorResponse('Failed to select image', 500);
     }
 
-    // 构建图片 URL 并直接返回图片内容
+    // 构建图片 URL 并直接返回图片内容（只改变路径，不改变 host）
     // 使用 createImageResponse 确保浏览器显示图片而不是下载
     // 使用 0 缓存时间，确保每次访问都能随机选择不同的图片
-    const imageUrl = `${url.origin}${imageDir}/${selectedImage}`;
+    const imageUrl = `${imageDir}/${selectedImage}`;
     return await createImageResponse(imageUrl, selectedImage, 0);
     
   } catch (error) {

@@ -61,9 +61,9 @@ export default {
         return createErrorResponse('Failed to select image', 500);
       }
 
-      // 重定向到静态资源
+      // 重定向到静态资源（只改变路径，不改变 host）
       // 使用 0 缓存时间，确保每次访问都能随机选择不同的图片
-      return createRedirectResponse(`${url.origin}${imageDir}/${selectedImage}`, 302, 0);
+      return createRedirectResponse(`${imageDir}/${selectedImage}`, 302, 0);
       
     } catch (error) {
       return createErrorResponse(

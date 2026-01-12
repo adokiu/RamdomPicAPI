@@ -12,6 +12,8 @@ export const imageConfig = {
   '/mb-miku': { dir: '/images/mb-miku', name: '移动端初音' },
   '/acg-fj': { dir: '/images/acg-fj', name: 'ACG 风景' },
   '/pc-lty': { dir: '/images/pc-lty', name: 'PC 洛天依' },
+  '/pc-sr': { dir: '/images/pc-lty', name: 'PC 星穹铁道' },
+
 } as const;
 
 // 支持的图片格式
