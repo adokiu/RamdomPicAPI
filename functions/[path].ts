@@ -256,22 +256,18 @@ export async function onRequest(
       // 随机选择一个文件
       const randomIndex = Math.floor(Math.random() * listed.objects.length);
       const selectedKey = listed.objects[randomIndex].key;
-      const selectedImage = selectedKey.split('/').pop() || '';
       
-      // 获取文件内容
-      const object = await r2Bucket.get(selectedKey);
-      if (!object) {
-        return new Response('Image not found', { status: 404 });
-      }
+      // 构建重定向路径（加上开头的 /）
+      const imagePath = `/${selectedKey}`;
       
-      const contentType = object.httpMetadata?.contentType || getContentType(selectedImage);
-      return new Response(object.body, {
+      // 返回 302 重定向到图片路径
+      return new Response(null, {
+        status: 302,
         headers: {
-          'Content-Type': contentType,
-          'Content-Length': object.size.toString(),
-          // API 请求不缓存，确保每次随机
+          'Location': imagePath,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Content-Disposition': 'inline',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       });
     } else {
