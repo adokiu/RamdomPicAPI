@@ -180,13 +180,12 @@ export async function createImageResponse(
  * @param baseUrl - 基础 URL（协议 + 域名）
  * @returns 包含 HTML 内容的 Response
  */
-export function generateApiDocPage(baseUrl: string): Response {
+export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<string, number>): Response {
   const availablePaths = Object.keys(imageConfig);
-  // 计算所有 API 图片总数量
-  const totalImageCount = Object.values(imageList).reduce(
-    (sum, list) => sum + (Array.isArray(list) ? list.length : 0),
-    0
-  );
+  // 计算所有 API 图片总数量（R2 模式优先使用 r2ImageCounts）
+  const totalImageCount = r2ImageCounts 
+    ? Object.values(r2ImageCounts).reduce((sum, count) => sum + count, 0)
+    : Object.values(imageList).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0);
   // 使用第一个路径作为背景图片
   const backgroundImageUrl = availablePaths.length > 0 ? `${baseUrl}${availablePaths[0]}` : '';
   
@@ -194,7 +193,7 @@ export function generateApiDocPage(baseUrl: string): Response {
     const configItem = imageConfig[path as keyof typeof imageConfig];
     const exampleUrl = `${baseUrl}${path}`;
     const displayName = configItem?.name || path;
-    const imageCount = Array.isArray(imageList[path]) ? imageList[path].length : 0;
+    const imageCount = r2ImageCounts?.[path] ?? (Array.isArray(imageList[path]) ? imageList[path].length : 0);
     return `
       <div class="api-example" data-api-path="${path}">
         <div class="api-header">
@@ -1352,7 +1351,7 @@ export function generateApiDocPage(baseUrl: string): Response {
       }
       
       /**
-       * 获取页面统计数据（按路径）
+       * 获取页面统计数据（按路径）- 使用 pageviews 端点
        */
       async function getPageStatsWithShare(path, startAt = 0, endAt = Date.now()) {
         try {
@@ -1364,14 +1363,13 @@ export function generateApiDocPage(baseUrl: string): Response {
           const params = new URLSearchParams({
             startAt: startAt.toString(),
             endAt: endAt.toString(),
-            unit: 'hour',
+            unit: 'day',
             timezone: 'Asia/Shanghai',
-            compare: 'false',
             url: path,
           });
 
-          const statsUrl = UMAMI_BASE_URL + '/api/websites/' + websiteId + '/stats?' + params.toString();
-          const response = await fetch(statsUrl, {
+          const pageviewsUrl = UMAMI_BASE_URL + '/api/websites/' + websiteId + '/pageviews?' + params.toString();
+          const response = await fetch(pageviewsUrl, {
             headers: {
               'x-umami-share-token': token,
             },
@@ -1379,7 +1377,6 @@ export function generateApiDocPage(baseUrl: string): Response {
 
           if (!response.ok) {
             if (response.status === 401) {
-              // Token 失效，清理缓存并重试一次
               shareDataCache = null;
               return await getPageStatsWithShare(path, startAt, endAt);
             }
@@ -1387,17 +1384,21 @@ export function generateApiDocPage(baseUrl: string): Response {
           }
 
           const data = await response.json();
-
-          const pageviewsValue = typeof data.pageviews === 'object' && data.pageviews !== null 
-            ? data.pageviews.value 
-            : (data.pageviews || 0);
-          const visitorsValue = typeof data.visitors === 'object' && data.visitors !== null 
-            ? data.visitors.value 
-            : (data.visitors || 0);
+          
+          // pageviews 端点返回 { pageviews: [...], sessions: [...] }
+          // 计算总和
+          let totalPageviews = 0;
+          let totalSessions = 0;
+          if (Array.isArray(data.pageviews)) {
+            totalPageviews = data.pageviews.reduce((sum, item) => sum + (item.y || 0), 0);
+          }
+          if (Array.isArray(data.sessions)) {
+            totalSessions = data.sessions.reduce((sum, item) => sum + (item.y || 0), 0);
+          }
 
           return {
-            pageviews: pageviewsValue,
-            visitors: visitorsValue,
+            pageviews: totalPageviews,
+            visitors: totalSessions,
           };
         } catch (error) {
           console.error('Failed to fetch page stats with share:', error);
@@ -1533,16 +1534,18 @@ export function generateApiDocPage(baseUrl: string): Response {
 /**
  * 生成图库页面
  */
-export function generateGalleryPage(baseUrl: string): Response {
+export function generateGalleryPage(baseUrl: string, r2ImageCounts?: Record<string, number>, r2ImageLists?: Record<string, string[]>): Response {
   const apiConfigs = Object.entries(imageConfig).map(([path, config]) => {
     // imageList 的键是路径如 /pc-miku，不是目录如 /images/pc-miku
-    const images = imageList[path as keyof typeof imageList] || [];
+    // R2 模式下优先使用 r2ImageLists
+    const images = r2ImageLists?.[path] ?? imageList[path as keyof typeof imageList] ?? [];
+    const count = r2ImageCounts?.[path] ?? images.length;
     return {
       path,
       name: config.name,
       dir: config.dir,
       images: images,
-      count: images.length
+      count: count
     };
   });
 

@@ -156,15 +156,49 @@ export async function onRequest(
   const pathSegments = Array.isArray(params.path) ? params.path : [params.path];
   const paramPath = `/${pathSegments[0]}`;
   
+  // 静态文件透传（/icons/ 等 public 目录文件）
+  if (pathname.startsWith('/icons/') || pathname === '/favicon.ico' || pathname === '/_routes.json') {
+    if (env?.ASSETS?.fetch) {
+      const staticRequest = new Request(new URL(pathname, url.origin));
+      return env.ASSETS.fetch(staticRequest);
+    }
+    return new Response(null, { status: 404 });
+  }
+  
+  // R2 模式下获取图片数量和列表
+  let r2ImageCounts: Record<string, number> | undefined;
+  let r2ImageLists: Record<string, string[]> | undefined;
+  if (storageConfig.type === 'r2') {
+    const r2Bucket = env?.[storageConfig.r2BindingName] as R2Bucket | undefined;
+    if (r2Bucket) {
+      r2ImageCounts = {};
+      r2ImageLists = {};
+      for (const [path, config] of Object.entries(imageConfig)) {
+        const prefix = storageConfig.r2Prefix 
+          ? `${storageConfig.r2Prefix}${config.dir.slice(1)}/`
+          : `${config.dir.slice(1)}/`;
+        try {
+          const listed = await r2Bucket.list({ prefix, limit: 1000 });
+          const files = listed.objects?.map(obj => obj.key.split('/').pop() || '') || [];
+          r2ImageCounts[path] = files.length;
+          r2ImageLists[path] = files;
+        } catch {
+          r2ImageCounts[path] = 0;
+          r2ImageLists[path] = [];
+        }
+      }
+    }
+  }
+  
   // 根路径返回首页
   if (pathname === '/' || pathSegments[0] === '' || pathSegments.length === 0) {
     const baseUrl = `${url.protocol}//${url.host}`;
-    return generateApiDocPage(baseUrl);
+    return generateApiDocPage(baseUrl, r2ImageCounts);
   }
   
   // 图库路径
   if (pathname === '/gallery' || pathSegments[0] === 'gallery') {
-    return generateGalleryPage(url.origin);
+    return generateGalleryPage(url.origin, r2ImageCounts, r2ImageLists);
   }
   
   // 如果路径以 /images/ 开头，说明是静态文件请求
@@ -199,6 +233,7 @@ export async function onRequest(
         headers: {
           'Content-Type': contentType,
           'Content-Length': object.size.toString(),
+          'Content-Disposition': 'inline',
           'Cache-Control': 'public, max-age=31536000, immutable',
           'CDN-Cache-Control': 'max-age=31536000',
         },
