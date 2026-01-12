@@ -169,10 +169,10 @@ export async function onRequest(
         return new Response('Storage not configured', { status: 500 });
       }
       
-      // 构建 R2 key（去掉开头的 /）
+      // 构建 R2 key（R2 里 key 带 / 开头）
       const r2Key = storageConfig.r2Prefix 
-        ? `${storageConfig.r2Prefix}${pathname.slice(1)}`
-        : pathname.slice(1);
+        ? `${storageConfig.r2Prefix}${pathname}`
+        : pathname;
       
       const object = await r2Bucket.get(r2Key);
       if (!object) {
@@ -185,6 +185,7 @@ export async function onRequest(
           'Content-Type': contentType,
           'Content-Length': object.size.toString(),
           'Cache-Control': 'public, max-age=31536000, immutable',
+          'CDN-Cache-Control': 'max-age=31536000',
           'Content-Disposition': 'inline',
         },
       });
@@ -239,10 +240,10 @@ export async function onRequest(
         return new Response('Storage not configured', { status: 500 });
       }
       
-      // 构建 R2 前缀（去掉开头的 /）
+      // 构建 R2 前缀（R2 里 key 带 / 开头）
       const prefix = storageConfig.r2Prefix 
-        ? `${storageConfig.r2Prefix}${resolvedDir.slice(1)}/`
-        : `${resolvedDir.slice(1)}/`;
+        ? `${storageConfig.r2Prefix}${resolvedDir}/`
+        : `${resolvedDir}/`;
       
       // 列出该目录下所有文件
       const listed = await r2Bucket.list({ prefix, limit: 1000 });
