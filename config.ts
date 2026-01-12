@@ -14,7 +14,7 @@ export const storageConfig = {
   // R2 存储桶绑定变量名（在 wrangler.toml 或 Pages 设置中配置）
   r2BindingName: 'IMAGES_BUCKET',
   // R2 中图片的根路径前缀（可选，默认为空）
-  r2Prefix: '',
+  r2Prefix: 'yao',
 };
 
 export const imageConfig = {

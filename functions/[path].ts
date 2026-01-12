@@ -169,10 +169,10 @@ export async function onRequest(
         return new Response('Storage not configured', { status: 500 });
       }
       
-      // 构建 R2 key（R2 key 不带开头的 /）
+      // 构建 R2 key
       const r2Key = storageConfig.r2Prefix 
         ? `${storageConfig.r2Prefix}${pathname.slice(1)}`
-        : pathname.slice(1);
+        : pathname.startsWith('/') ? pathname.slice(1) : pathname;
       
       const object = await r2Bucket.get(r2Key);
       if (!object) {
