@@ -36,9 +36,10 @@ export default async function handleRequest(request: Request): Promise<Response>
   const configKey = pathname.startsWith('/') ? pathname : `/${pathname}`;
   
   // 查找匹配的图片目录
-  const imageDir = imageConfig[configKey as keyof typeof imageConfig];
+  const configItem = imageConfig[configKey as keyof typeof imageConfig];
+  const imageDir = configItem?.dir;
   
-  if (!imageDir) {
+  if (!configItem || !imageDir) {
     return new Response(
       JSON.stringify({ 
         error: 'Path not found',

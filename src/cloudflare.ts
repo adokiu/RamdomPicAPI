@@ -4,7 +4,7 @@
  */
 import { imageConfig, cacheMaxAge } from '../config';
 import { imageList } from '../image-list';
-import { randomSelect, createErrorResponse, createRedirectResponse } from './utils';
+import { randomSelect, createErrorResponse, createRedirectResponse, generateApiDocPage, generateGalleryPage } from './utils';
 
 /**
  * 从 image-list.ts 获取图片列表
@@ -18,10 +18,21 @@ export default {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    // 如果访问根路径，返回 API 介绍页面
+    if (pathname === '/' || pathname === '') {
+      return generateApiDocPage(url.origin);
+    }
+
+    // 如果访问图库页面
+    if (pathname === '/gallery') {
+      return generateGalleryPage(url.origin);
+    }
+
     const configKey = pathname.startsWith('/') ? pathname : `/${pathname}`;
-    const imageDir = imageConfig[configKey as keyof typeof imageConfig];
+    const configItem = imageConfig[configKey as keyof typeof imageConfig];
+    const imageDir = configItem?.dir;
     
-    if (!imageDir) {
+    if (!configItem || !imageDir) {
       return new Response(
         JSON.stringify({ 
           error: 'Path not found',

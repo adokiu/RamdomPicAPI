@@ -1,4 +1,5 @@
 node_modules/
+avifpython/
 dist/
 .wrangler/
 .vercel/
@@ -6,5 +7,4 @@ dist/
 .DS_Store
 .env
 .env.local
-scripts/
 

@@ -2,10 +2,16 @@
  * 随机图片API配置
  * 配置路径映射：访问路径 -> 图片目录
  */
+export type ImageConfigItem = {
+  dir: string;
+  name: string;
+};
+
 export const imageConfig = {
-  // 访问 /a 时，从 /images/a 目录随机选择图片
-  '/pc-miku': '/images/pc-miku',
-  '/mb-miku': '/images/mb-miku',
+  '/pc-miku': { dir: '/images/pc-miku', name: 'PC 初音' },
+  '/mb-miku': { dir: '/images/mb-miku', name: '移动端初音' },
+  '/acg-fj': { dir: '/images/acg-fj', name: 'ACG 风景' },
+  '/pc-lty': { dir: '/images/pc-lty', name: 'PC 洛天依' },
 } as const;
 
 // 支持的图片格式

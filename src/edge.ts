@@ -5,7 +5,7 @@
  */
 import { imageConfig, cacheMaxAge } from '../config';
 import { imageList } from '../image-list';
-import { randomSelect, createErrorResponse, createRedirectResponse, getImageDir } from './utils';
+import { randomSelect, createErrorResponse, createImageResponse, getImageDir, generateApiDocPage, generateGalleryPage } from './utils';
 
 /**
  * 从 image-list.ts 获取图片列表
@@ -34,6 +34,16 @@ export default async function handler(
   const url = new URL(request.url);
   const pathname = url.pathname;
 
+  // 如果访问根路径，返回 API 介绍页面
+  if (pathname === '/' || pathname === '') {
+    return generateApiDocPage(url.origin);
+  }
+
+  // 如果访问图库页面
+  if (pathname === '/gallery') {
+    return generateGalleryPage(url.origin);
+  }
+
   // 获取对应的图片目录
   const imageDir = getImageDir(pathname);
   
@@ -60,10 +70,11 @@ export default async function handler(
       return createErrorResponse('Failed to select image', 500);
     }
 
-    // 构建图片 URL 并重定向
+    // 构建图片 URL 并直接返回图片内容
+    // 使用 createImageResponse 确保浏览器显示图片而不是下载
     // 使用 0 缓存时间，确保每次访问都能随机选择不同的图片
     const imageUrl = `${url.origin}${imageDir}/${selectedImage}`;
-    return createRedirectResponse(imageUrl, 302, 0);
+    return await createImageResponse(imageUrl, selectedImage, 0);
     
   } catch (error) {
     return createErrorResponse(
