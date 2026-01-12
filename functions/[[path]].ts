@@ -126,7 +126,7 @@ function getImageList(pathKey: string): string[] {
 export async function onRequest(
   context: {
     request: Request;
-    params: { path: string };
+    params: { path: string | string[] };
     env?: {
       ASSETS?: {
         fetch: (request: Request) => Promise<Response>;
@@ -152,7 +152,9 @@ export async function onRequest(
   const url = new URL(request.url);
   // 使用完整的 pathname 来检查，更可靠
   const pathname = url.pathname;
-  const paramPath = `/${params.path}`;
+  // [[path]] 捕获的参数可能是数组或字符串
+  const pathSegments = Array.isArray(params.path) ? params.path : [params.path];
+  const paramPath = `/${pathSegments[0]}`;
   
   // 如果路径以 /images/ 开头，说明是静态文件请求
   if (pathname.startsWith('/images/')) {
