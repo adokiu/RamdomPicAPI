@@ -176,7 +176,9 @@ export async function onRequest(
       
       const object = await r2Bucket.get(r2Key);
       if (!object) {
-        return new Response('Image not found', { status: 404 });
+        return new Response(JSON.stringify({ error: 'Image not found', r2Key, pathname }), { 
+          status: 404, headers: { 'Content-Type': 'application/json' } 
+        });
       }
       
       const contentType = object.httpMetadata?.contentType || getContentType(filename);
