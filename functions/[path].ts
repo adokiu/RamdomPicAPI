@@ -2,10 +2,39 @@
  * Cloudflare Pages Functions 实现
  * 使用通配符路径处理所有图片路径请求
  * 从预生成的 image-list.ts 读取图片列表（构建时生成）
+ * 支持 Pages 本地存储和 R2 存储两种模式
  */
-import { imageConfig } from '../config';
+import { imageConfig, storageConfig } from '../config';
 import { imageList } from '../image-list';
 import { createImageResponse, fixImageResponseHeaders } from '../src/utils';
+
+// R2 存储桶类型定义
+interface R2Bucket {
+  get(key: string): Promise<R2Object | null>;
+}
+
+interface R2Object {
+  body: ReadableStream;
+  httpMetadata?: {
+    contentType?: string;
+  };
+  size: number;
+}
+
+// 根据文件扩展名获取 Content-Type
+function getContentType(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    'avif': 'image/avif',
+    'webp': 'image/webp',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'svg': 'image/svg+xml',
+  };
+  return mimeTypes[ext || ''] || 'application/octet-stream';
+}
 
 // 服务器侧打点，避免直接访问静态图片时漏计数
 async function sendUmamiPageview(url: URL, title: string, request: Request) {
@@ -94,6 +123,7 @@ export async function onRequest(
       ASSETS?: {
         fetch: (request: Request) => Promise<Response>;
       };
+      [key: string]: any; // R2 绑定会动态添加
     };
     waitUntil?: (p: Promise<any>) => void;
   }
@@ -117,32 +147,56 @@ export async function onRequest(
   const paramPath = `/${params.path}`;
   
   // 如果路径以 /images/ 开头，说明是静态文件请求
-  // 使用 ASSETS.fetch() 或 fetch() 获取静态文件
   if (pathname.startsWith('/images/')) {
     const filename = pathname.split('/').pop() || '';
     // 静态图片也计数
     await track({ ...context, request }, url, filename);
     
-    // 优先使用 env.ASSETS.fetch()（Cloudflare Pages 推荐方式）
-    if (env?.ASSETS?.fetch) {
-      const staticRequest = new Request(new URL(pathname, url.origin));
-      const staticResponse = await env.ASSETS.fetch(staticRequest);
-      if (staticResponse.ok) {
-        // 确保静态文件也设置正确的响应头，防止下载
-        // 静态图片文件设置强缓存（1年 = 31536000秒）
-        return await fixImageResponseHeaders(staticResponse, filename, 31536000);
+    // 根据存储配置选择读取方式
+    if (storageConfig.type === 'r2') {
+      // R2 存储模式：从 R2 读取并直接返回内容
+      const r2Bucket = env?.[storageConfig.r2BindingName] as R2Bucket | undefined;
+      if (!r2Bucket) {
+        console.error(`R2 bucket binding '${storageConfig.r2BindingName}' not found`);
+        return new Response('Storage not configured', { status: 500 });
       }
+      
+      // 构建 R2 key（去掉开头的 /）
+      const r2Key = storageConfig.r2Prefix 
+        ? `${storageConfig.r2Prefix}${pathname.slice(1)}`
+        : pathname.slice(1);
+      
+      const object = await r2Bucket.get(r2Key);
+      if (!object) {
+        return new Response('Image not found', { status: 404 });
+      }
+      
+      const contentType = object.httpMetadata?.contentType || getContentType(filename);
+      return new Response(object.body, {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': object.size.toString(),
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Content-Disposition': 'inline',
+        },
+      });
     } else {
-      // 备用方案：使用 fetch() 获取静态文件
-      const staticFileUrl = new URL(pathname, url.origin);
-      const staticResponse = await fetch(staticFileUrl);
-      if (staticResponse.ok) {
-        // 确保静态文件也设置正确的响应头，防止下载
-        // 静态图片文件设置强缓存（1年 = 31536000秒）
-        return await fixImageResponseHeaders(staticResponse, filename, 31536000);
+      // Pages 本地存储模式：使用 ASSETS.fetch() 或 fetch()
+      if (env?.ASSETS?.fetch) {
+        const staticRequest = new Request(new URL(pathname, url.origin));
+        const staticResponse = await env.ASSETS.fetch(staticRequest);
+        if (staticResponse.ok) {
+          return await fixImageResponseHeaders(staticResponse, filename, 31536000);
+        }
+      } else {
+        const staticFileUrl = new URL(pathname, url.origin);
+        const staticResponse = await fetch(staticFileUrl);
+        if (staticResponse.ok) {
+          return await fixImageResponseHeaders(staticResponse, filename, 31536000);
+        }
       }
+      return new Response(null, { status: 404 });
     }
-    return new Response(null, { status: 404 });
   }
   
   // 使用 paramPath 来匹配配置的路径（不包含 /images/ 前缀）
@@ -187,17 +241,47 @@ export async function onRequest(
     const selectedImage = imageListArray[randomIndex];
     const imagePath = `${resolvedDir}/${selectedImage}`;
     
-    // 返回 302 重定向到实际图片路径（只改变路径，不改变 host）
-    // 禁用缓存，确保每次访问都能随机选择不同的图片
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': imagePath,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    });
+    // 根据存储配置选择返回方式
+    if (storageConfig.type === 'r2') {
+      // R2 存储模式：直接从 R2 读取并返回图片内容（不暴露 R2 地址）
+      const r2Bucket = env?.[storageConfig.r2BindingName] as R2Bucket | undefined;
+      if (!r2Bucket) {
+        console.error(`R2 bucket binding '${storageConfig.r2BindingName}' not found`);
+        return new Response('Storage not configured', { status: 500 });
+      }
+      
+      // 构建 R2 key（去掉开头的 /）
+      const r2Key = storageConfig.r2Prefix 
+        ? `${storageConfig.r2Prefix}${imagePath.slice(1)}`
+        : imagePath.slice(1);
+      
+      const object = await r2Bucket.get(r2Key);
+      if (!object) {
+        return new Response('Image not found', { status: 404 });
+      }
+      
+      const contentType = object.httpMetadata?.contentType || getContentType(selectedImage);
+      return new Response(object.body, {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': object.size.toString(),
+          // API 请求不缓存，确保每次随机
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Content-Disposition': 'inline',
+        },
+      });
+    } else {
+      // Pages 本地存储模式：返回 302 重定向到实际图片路径
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': imagePath,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
+    }
     
   } catch (error) {
     return new Response(
