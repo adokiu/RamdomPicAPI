@@ -40,7 +40,7 @@ async function getUmamiShareData(): Promise<{ websiteId: string; token: string }
       throw new Error(`获取 Umami 分享信息失败: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as { websiteId: string; token: string };
     shareDataCache = { data, timestamp: now };
     return data;
   } catch (error) {
@@ -83,7 +83,7 @@ async function getWebsiteStats(startAt: number = 0, endAt: number = Date.now()):
       throw new Error(`获取统计数据失败: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as { pageviews: { value: number } | number; visitors: { value: number } | number };
     const pageviewsValue = typeof data.pageviews === 'object' && data.pageviews !== null 
       ? data.pageviews.value 
       : (data.pageviews || 0);
