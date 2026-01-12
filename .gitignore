@@ -1,5 +1,5 @@
 node_modules/
-pytshon/
+python/
 dist/
 .wrangler/
 .vercel/
