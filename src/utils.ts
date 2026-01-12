@@ -1351,9 +1351,9 @@ export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<strin
       }
       
       /**
-       * 获取页面统计数据（按路径）- 使用 pageviews 端点
+       * 获取特定页面的统计数据（使用 path: eq.xxx 参数）
        */
-      async function getPageStatsWithShare(path, startAt = 0, endAt = Date.now()) {
+      async function getPageStatsWithShare(pagePath, startAt = 0, endAt = Date.now()) {
         try {
           const shareData = await getUmamiShareData();
           if (!shareData) return null;
@@ -1363,13 +1363,14 @@ export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<strin
           const params = new URLSearchParams({
             startAt: startAt.toString(),
             endAt: endAt.toString(),
-            unit: 'day',
+            unit: 'hour',
             timezone: 'Asia/Shanghai',
-            url: path,
+            compare: 'false',
+            path: 'eq.' + pagePath,
           });
 
-          const pageviewsUrl = UMAMI_BASE_URL + '/api/websites/' + websiteId + '/pageviews?' + params.toString();
-          const response = await fetch(pageviewsUrl, {
+          const statsUrl = UMAMI_BASE_URL + '/api/websites/' + websiteId + '/stats?' + params.toString();
+          const response = await fetch(statsUrl, {
             headers: {
               'x-umami-share-token': token,
             },
@@ -1378,30 +1379,25 @@ export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<strin
           if (!response.ok) {
             if (response.status === 401) {
               shareDataCache = null;
-              return await getPageStatsWithShare(path, startAt, endAt);
+              return await getPageStatsWithShare(pagePath, startAt, endAt);
             }
             return null;
           }
 
           const data = await response.json();
-          
-          // pageviews 端点返回 { pageviews: [...], sessions: [...] }
-          // 计算总和
-          let totalPageviews = 0;
-          let totalSessions = 0;
-          if (Array.isArray(data.pageviews)) {
-            totalPageviews = data.pageviews.reduce((sum, item) => sum + (item.y || 0), 0);
-          }
-          if (Array.isArray(data.sessions)) {
-            totalSessions = data.sessions.reduce((sum, item) => sum + (item.y || 0), 0);
-          }
+          const pageviewsValue = typeof data.pageviews === 'object' && data.pageviews !== null 
+            ? data.pageviews.value 
+            : (data.pageviews || 0);
+          const visitorsValue = typeof data.visitors === 'object' && data.visitors !== null 
+            ? data.visitors.value 
+            : (data.visitors || 0);
 
           return {
-            pageviews: totalPageviews,
-            visitors: totalSessions,
+            pageviews: pageviewsValue,
+            visitors: visitorsValue,
           };
         } catch (error) {
-          console.error('Failed to fetch page stats with share:', error);
+          console.error('Failed to fetch page stats:', error);
           return null;
         }
       }
@@ -1492,8 +1488,6 @@ export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<strin
                 animateNumber(usersEl, stats.visitors || 0);
                 animateNumber(callsEl, stats.pageviews || 0);
               } else {
-                // 如果无法获取该API的统计数据，使用总体统计的估算值
-                // 或者显示占位符
                 usersEl.textContent = '-';
                 callsEl.textContent = '-';
               }
