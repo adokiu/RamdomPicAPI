@@ -248,7 +248,7 @@ export async function onRequest(
       // 列出该目录下所有文件
       const listed = await r2Bucket.list({ prefix, limit: 1000 });
       if (!listed.objects || listed.objects.length === 0) {
-        return new Response(JSON.stringify({ error: 'No images found in R2' }), {
+        return new Response(JSON.stringify({ error: 'No images found in R2', prefix, resolvedDir }), {
           status: 404,
           headers: { 'Content-Type': 'application/json' },
         });
