@@ -1551,7 +1551,8 @@ export function generateGalleryPage(baseUrl: string, r2ImageCounts?: Record<stri
   `).join('');
 
   const apiPanels = apiConfigs.map((api, index) => {
-    const imagesJson = JSON.stringify(api.images);
+    // 转义 JSON 以安全嵌入 HTML 属性
+    const imagesJson = JSON.stringify(api.images).replace(/'/g, '&#39;');
     return `
       <div class="tab-panel${index === 0 ? ' active' : ''}" data-index="${index}" data-images='${imagesJson}' data-base="${baseUrl}${api.dir}/">
         <div class="gallery-grid" id="gallery-${index}"></div>
