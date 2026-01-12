@@ -11,6 +11,7 @@ import { createImageResponse, fixImageResponseHeaders } from '../src/utils';
 // R2 存储桶类型定义
 interface R2Bucket {
   get(key: string): Promise<R2Object | null>;
+  list(options?: { prefix?: string; limit?: number; cursor?: string }): Promise<R2Objects>;
 }
 
 interface R2Object {
@@ -19,6 +20,13 @@ interface R2Object {
     contentType?: string;
   };
   size: number;
+  key: string;
+}
+
+interface R2Objects {
+  objects: R2Object[];
+  truncated: boolean;
+  cursor?: string;
 }
 
 // 根据文件扩展名获取 Content-Type
@@ -221,41 +229,37 @@ export async function onRequest(
 
   try {
     const resolvedDir = imageDir;
-    const imageListArray = getImageList(paramPath);
-    
-    if (imageListArray.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'No images found',
-          hint: `Please run 'npm run generate' to generate image list before building`
-        }),
-        {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // 随机选择一张图片
-    const randomIndex = Math.floor(Math.random() * imageListArray.length);
-    const selectedImage = imageListArray[randomIndex];
-    const imagePath = `${resolvedDir}/${selectedImage}`;
     
     // 根据存储配置选择返回方式
     if (storageConfig.type === 'r2') {
-      // R2 存储模式：直接从 R2 读取并返回图片内容（不暴露 R2 地址）
+      // R2 存储模式：直接从 R2 列目录并随机选择
       const r2Bucket = env?.[storageConfig.r2BindingName] as R2Bucket | undefined;
       if (!r2Bucket) {
         console.error(`R2 bucket binding '${storageConfig.r2BindingName}' not found`);
         return new Response('Storage not configured', { status: 500 });
       }
       
-      // 构建 R2 key（去掉开头的 /）
-      const r2Key = storageConfig.r2Prefix 
-        ? `${storageConfig.r2Prefix}${imagePath.slice(1)}`
-        : imagePath.slice(1);
+      // 构建 R2 前缀（去掉开头的 /）
+      const prefix = storageConfig.r2Prefix 
+        ? `${storageConfig.r2Prefix}${resolvedDir.slice(1)}/`
+        : `${resolvedDir.slice(1)}/`;
       
-      const object = await r2Bucket.get(r2Key);
+      // 列出该目录下所有文件
+      const listed = await r2Bucket.list({ prefix, limit: 1000 });
+      if (!listed.objects || listed.objects.length === 0) {
+        return new Response(JSON.stringify({ error: 'No images found in R2' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // 随机选择一个文件
+      const randomIndex = Math.floor(Math.random() * listed.objects.length);
+      const selectedKey = listed.objects[randomIndex].key;
+      const selectedImage = selectedKey.split('/').pop() || '';
+      
+      // 获取文件内容
+      const object = await r2Bucket.get(selectedKey);
       if (!object) {
         return new Response('Image not found', { status: 404 });
       }
@@ -271,7 +275,22 @@ export async function onRequest(
         },
       });
     } else {
-      // Pages 本地存储模式：返回 302 重定向到实际图片路径
+      // Pages 本地存储模式：从 image-list.ts 读取列表
+      const imageListArray = getImageList(paramPath);
+      if (imageListArray.length === 0) {
+        return new Response(JSON.stringify({ 
+          error: 'No images found',
+          hint: `Please run 'npm run generate' to generate image list before building`
+        }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const randomIndex = Math.floor(Math.random() * imageListArray.length);
+      const selectedImage = imageListArray[randomIndex];
+      const imagePath = `${resolvedDir}/${selectedImage}`;
+      
       return new Response(null, {
         status: 302,
         headers: {
