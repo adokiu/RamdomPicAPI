@@ -1,0 +1,9 @@
+{
+  "name": "random-pic-api",
+  "entry": "./dist/src/esa-entry.js",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build:esa",
+  "assets": {
+    "directory": "./public"
+  }
+}

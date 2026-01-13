@@ -5,5 +5,5 @@
     "outDir": "./dist",
     "declaration": false
   },
-  "include": ["functions/**/*", "config.ts", "image-list/**/*", "src/utils.ts"]
+  "include": ["functions/**/*", "config.ts", "image-list/**/*", "src/**/*"]
 }
