@@ -239,7 +239,7 @@ export function generateApiDocPage(baseUrl: string): Response {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Yao の API</title>
-  <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="${imageBaseUrl}/icons/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1133,24 +1133,24 @@ export function generateApiDocPage(baseUrl: string): Response {
         <span class="supporters-text">感谢</span>
         <span class="supporter-logos">
           <a href="https://www.aliyun.com/product/esa" target="_blank" rel="noopener" title="阿里云 ESA">
-            <img class="supporter-logo" src="/icons/foot-esa.png" alt="阿里云ESA" />
+            <img class="supporter-logo" src="${imageBaseUrl}/icons/foot-esa.png" alt="阿里云ESA" />
           </a>
           <a href="https://cloud.tencent.com/product/teo" target="_blank" rel="noopener" title="腾讯云 EdgeOne">
-            <img class="supporter-logo" src="/icons/foot-edgeone.png" alt="腾讯云EdgeOne" />
+            <img class="supporter-logo" src="${imageBaseUrl}/icons/foot-edgeone.png" alt="腾讯云EdgeOne" />
           </a>
           <a href="https://www.cloudflare.com" target="_blank" rel="noopener" title="Cloudflare">
-            <img class="supporter-logo" src="/icons/foot-cloudflare.png" alt="Cloudflare" />
+            <img class="supporter-logo" src="${imageBaseUrl}/icons/foot-cloudflare.png" alt="Cloudflare" />
           </a>
         </span>
         <span class="supporters-text">的大力支持</span>
       </div>
       <div class="beian">
         <a class="beian-item" href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=51080202020049" target="_blank" rel="noopener">
-          <img src="/icons/foot-ga.png" alt="公安备案图标" />
+          <img src="${imageBaseUrl}/icons/foot-ga.png" alt="公安备案图标" />
           川公网安备51080202020049号
         </a>
         <a class="beian-item" href="https://beian.miit.gov.cn" target="_blank" rel="noopener">
-          <img src="/icons/foot-icp.png" alt="ICP备案图标" />
+          <img src="${imageBaseUrl}/icons/foot-icp.png" alt="ICP备案图标" />
           蜀ICP备2024102137号
         </a>
       </div>
@@ -1566,7 +1566,7 @@ export function generateGalleryPage(baseUrl: string): Response {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>图库 - Yao の API</title>
-  <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="${imageBaseUrl}/icons/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
