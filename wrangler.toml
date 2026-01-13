@@ -1,4 +1,4 @@
+# Cloudflare Pages 配置
 name = "random-pic-api"
-main = "src/cloudflare.ts"
 compatibility_date = "2024-01-01"
-assets = { directory = "./public" }
+pages_build_output_dir = "./public"

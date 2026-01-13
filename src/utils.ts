@@ -1,8 +1,8 @@
 /**
  * 通用工具函数
  */
-import { imageConfig } from '../config';
-import { imageList } from '../image-list';
+import { imageConfig, imageBaseUrl } from '../config';
+import { imageList } from '../image-list/index';
 
 /**
  * 从数组中随机选择一个元素
@@ -180,12 +180,10 @@ export async function createImageResponse(
  * @param baseUrl - 基础 URL（协议 + 域名）
  * @returns 包含 HTML 内容的 Response
  */
-export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<string, number>): Response {
+export function generateApiDocPage(baseUrl: string): Response {
   const availablePaths = Object.keys(imageConfig);
-  // 计算所有 API 图片总数量（R2 模式优先使用 r2ImageCounts）
-  const totalImageCount = r2ImageCounts 
-    ? Object.values(r2ImageCounts).reduce((sum, count) => sum + count, 0)
-    : Object.values(imageList).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0);
+  // 计算所有 API 图片总数量
+  const totalImageCount = Object.values(imageList).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0);
   // 使用第一个路径作为背景图片
   const backgroundImageUrl = availablePaths.length > 0 ? `${baseUrl}${availablePaths[0]}` : '';
   
@@ -193,7 +191,7 @@ export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<strin
     const configItem = imageConfig[path as keyof typeof imageConfig];
     const exampleUrl = `${baseUrl}${path}`;
     const displayName = configItem?.name || path;
-    const imageCount = r2ImageCounts?.[path] ?? (Array.isArray(imageList[path]) ? imageList[path].length : 0);
+    const imageCount = Array.isArray(imageList[path]) ? imageList[path].length : 0;
     return `
       <div class="api-example" data-api-path="${path}">
         <div class="api-header">
@@ -1528,18 +1526,15 @@ export function generateApiDocPage(baseUrl: string, r2ImageCounts?: Record<strin
 /**
  * 生成图库页面
  */
-export function generateGalleryPage(baseUrl: string, r2ImageCounts?: Record<string, number>, r2ImageLists?: Record<string, string[]>): Response {
+export function generateGalleryPage(baseUrl: string): Response {
   const apiConfigs = Object.entries(imageConfig).map(([path, config]) => {
-    // imageList 的键是路径如 /pc-miku，不是目录如 /images/pc-miku
-    // R2 模式下优先使用 r2ImageLists
-    const images = r2ImageLists?.[path] ?? imageList[path as keyof typeof imageList] ?? [];
-    const count = r2ImageCounts?.[path] ?? images.length;
+    const images = imageList[path as keyof typeof imageList] ?? [];
     return {
       path,
       name: config.name,
       dir: config.dir,
       images: images,
-      count: count
+      count: images.length
     };
   });
 
@@ -1553,8 +1548,10 @@ export function generateGalleryPage(baseUrl: string, r2ImageCounts?: Record<stri
   const apiPanels = apiConfigs.map((api, index) => {
     // 转义 JSON 以安全嵌入 HTML 属性
     const imagesJson = JSON.stringify(api.images).replace(/'/g, '&#39;');
+    // 使用图片资源站 URL
+    const imgBase = `${imageBaseUrl}${api.dir}/`;
     return `
-      <div class="tab-panel${index === 0 ? ' active' : ''}" data-index="${index}" data-images='${imagesJson}' data-base="${baseUrl}${api.dir}/">
+      <div class="tab-panel${index === 0 ? ' active' : ''}" data-index="${index}" data-images='${imagesJson}' data-base="${imgBase}">
         <div class="gallery-grid" id="gallery-${index}"></div>
         <div class="load-more-container" id="load-more-${index}">
           <button class="load-more-btn" onclick="loadMore(${index})">加载更多</button>

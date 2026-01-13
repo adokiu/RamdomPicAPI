@@ -18,19 +18,18 @@
 
 import os
 import sys
-import random
-import string
+import hashlib
 import json
 import threading
 from pathlib import Path
-from typing import Set, Optional, Tuple
+from typing import Set, Optional, Tuple, Dict, List
 from PIL import Image
 from concurrent.futures import ProcessPoolExecutor, as_completed, ThreadPoolExecutor
 from multiprocessing import cpu_count
 import time
 from threading import Lock
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 
 # 修复 Windows 控制台编码问题
 if sys.platform == 'win32':
@@ -51,71 +50,76 @@ AVIF_EXT = '.avif'
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
 
-# 配置文件路径（与脚本在同一目录）
-CONFIG_FILE = Path(__file__).parent / 'config.json'
+# 用户设置文件（保存 GUI 配置）
+SETTINGS_FILE = Path(__file__).parent / '.gui_settings.json'
 
 # 默认配置值
 DEFAULT_CONFIG = {
-    'imagesDir': 'public/images',
-    'maxFileSizeKB': 4096,
-    'minShortEdge': 3500,
+    'imagesDir': 'images',
+    'imageListDir': 'image-list',
+    'maxFileSizeKB': 1024,
+    'minShortEdge': 3000,
     'targetShortEdge': 2160,
     'defaultQuality': 85,
     'minQuality': 20,
     'maxQuality': 85,
-    'speedNormal': 4,
-    'speedGpu': 6,
-    'randomNameLength': 8
+    'hashNameLength': 8
 }
 
 
-def load_config() -> dict:
-    """从 config.json 加载配置"""
-    if not CONFIG_FILE.exists():
+def load_settings() -> dict:
+    """加载 GUI 设置"""
+    if not SETTINGS_FILE.exists():
         return DEFAULT_CONFIG.copy()
-    
     try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            # 合并默认配置，确保所有必需的配置项都存在
-            merged_config = DEFAULT_CONFIG.copy()
-            for key, value in config.items():
-                if key != 'description':  # 跳过描述字段
-                    merged_config[key] = value
-            return merged_config
-    except (json.JSONDecodeError, IOError) as e:
+        with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            settings = json.load(f)
+            merged = DEFAULT_CONFIG.copy()
+            merged.update(settings)
+            return merged
+    except:
         return DEFAULT_CONFIG.copy()
 
 
-# 加载配置
-CONFIG = load_config()
+def save_settings(settings: dict):
+    """保存 GUI 设置"""
+    try:
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+    except:
+        pass
 
-# 从配置文件读取图片目录路径
-IMAGES_DIR = PROJECT_ROOT / CONFIG.get('imagesDir', 'public/images')
 
-# 从配置文件读取各种配置值
-MAX_FILE_SIZE = int(CONFIG.get('maxFileSizeKB', 4096) * 1024)
-MIN_SHORT_EDGE = int(CONFIG.get('minShortEdge', 3500))
+# 全局配置变量（会被 GUI 更新）
+CONFIG = load_settings()
+IMAGES_DIR = PROJECT_ROOT / CONFIG.get('imagesDir', 'images')
+MAX_FILE_SIZE = int(CONFIG.get('maxFileSizeKB', 1024) * 1024)
+MIN_SHORT_EDGE = int(CONFIG.get('minShortEdge', 3000))
 TARGET_SHORT_EDGE = int(CONFIG.get('targetShortEdge', 2160))
 DEFAULT_QUALITY = int(CONFIG.get('defaultQuality', 85))
 MIN_QUALITY = int(CONFIG.get('minQuality', 20))
 MAX_QUALITY = int(CONFIG.get('maxQuality', 85))
-SPEED_NORMAL = int(CONFIG.get('speedNormal', 4))
-SPEED_GPU = int(CONFIG.get('speedGpu', 6))
-RANDOM_NAME_LENGTH = int(CONFIG.get('randomNameLength', 8))
+RANDOM_NAME_LENGTH = int(CONFIG.get('hashNameLength', 8))
 
 
-def generate_random_name() -> str:
-    """生成随机文件名（小写字母和数字）"""
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=RANDOM_NAME_LENGTH))
+def generate_hash_name(file_path: Path, length: int = None) -> str:
+    """
+    根据文件内容生成 hash 值作为文件名
+    确保文件内容改变后缓存会被刷新
+    """
+    if length is None:
+        length = RANDOM_NAME_LENGTH
+    with open(file_path, 'rb') as f:
+        file_hash = hashlib.md5(f.read()).hexdigest()
+    return file_hash[:length]
 
 
-def is_8digit_random(name: str) -> bool:
-    """检查文件名是否是8位随机字符（小写字母和数字）"""
+def is_hash_name(name: str) -> bool:
+    """检查文件名是否是 hash 格式（小写十六进制字符）"""
     if len(name) != RANDOM_NAME_LENGTH:
         return False
-    chars = set(string.ascii_lowercase + string.digits)
-    return all(c in chars for c in name)
+    hex_chars = set('0123456789abcdef')
+    return all(c in hex_chars for c in name.lower())
 
 
 def needs_resolution_adjustment(image_path: Path) -> bool:
@@ -405,29 +409,71 @@ class ImageConverterGUI:
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(2, weight=1)
         
-        # 配置信息区域
-        config_frame = ttk.LabelFrame(main_frame, text="配置信息", padding="10")
+        # 配置区域
+        config_frame = ttk.LabelFrame(main_frame, text="配置", padding="10")
         config_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         config_frame.columnconfigure(1, weight=1)
+        config_frame.columnconfigure(3, weight=1)
         
+        # 加载保存的设置
+        settings = load_settings()
+        
+        # 第一行：图片目录
         ttk.Label(config_frame, text="图片目录:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
-        self.dir_label = ttk.Label(config_frame, text=str(IMAGES_DIR), foreground="blue")
-        self.dir_label.grid(row=0, column=1, sticky=tk.W)
+        dir_frame = ttk.Frame(config_frame)
+        dir_frame.grid(row=0, column=1, sticky=tk.W, padx=(0, 20))
+        self.images_dir_var = tk.StringVar(value=settings.get('imagesDir', 'images'))
+        self.images_dir_entry = ttk.Entry(dir_frame, textvariable=self.images_dir_var, width=25)
+        self.images_dir_entry.grid(row=0, column=0)
+        ttk.Button(dir_frame, text="...", width=3, command=self.browse_images_dir).grid(row=0, column=1, padx=(2, 0))
         
-        ttk.Label(config_frame, text="最大文件大小:").grid(row=1, column=0, sticky=tk.W, padx=(0, 5))
-        ttk.Label(config_frame, text=f"{MAX_FILE_SIZE/1024:.0f}KB").grid(row=1, column=1, sticky=tk.W)
+        ttk.Label(config_frame, text="最大文件(KB):").grid(row=0, column=2, sticky=tk.W, padx=(0, 5))
+        self.max_file_size_var = tk.StringVar(value=str(settings.get('maxFileSizeKB', 1024)))
+        self.max_file_size_entry = ttk.Entry(config_frame, textvariable=self.max_file_size_var, width=10)
+        self.max_file_size_entry.grid(row=0, column=3, sticky=tk.W)
+        
+        # 第二行：image-list 输出目录
+        ttk.Label(config_frame, text="列表目录:").grid(row=1, column=0, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+        list_dir_frame = ttk.Frame(config_frame)
+        list_dir_frame.grid(row=1, column=1, sticky=tk.W, padx=(0, 20), pady=(5, 0))
+        self.image_list_dir_var = tk.StringVar(value=settings.get('imageListDir', 'image-list'))
+        self.image_list_dir_entry = ttk.Entry(list_dir_frame, textvariable=self.image_list_dir_var, width=25)
+        self.image_list_dir_entry.grid(row=0, column=0)
+        ttk.Button(list_dir_frame, text="...", width=3, command=self.browse_image_list_dir).grid(row=0, column=1, padx=(2, 0))
+        
+        # 第三行：分辨率设置
+        ttk.Label(config_frame, text="压缩阈值(短边):").grid(row=2, column=0, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+        self.min_short_edge_var = tk.StringVar(value=str(settings.get('minShortEdge', 3000)))
+        self.min_short_edge_entry = ttk.Entry(config_frame, textvariable=self.min_short_edge_var, width=10)
+        self.min_short_edge_entry.grid(row=2, column=1, sticky=tk.W, pady=(5, 0))
+        
+        ttk.Label(config_frame, text="目标短边:").grid(row=2, column=2, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+        self.target_short_edge_var = tk.StringVar(value=str(settings.get('targetShortEdge', 2160)))
+        self.target_short_edge_entry = ttk.Entry(config_frame, textvariable=self.target_short_edge_var, width=10)
+        self.target_short_edge_entry.grid(row=2, column=3, sticky=tk.W, pady=(5, 0))
+        
+        # 第四行：质量设置
+        ttk.Label(config_frame, text="默认质量:").grid(row=3, column=0, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+        self.default_quality_var = tk.StringVar(value=str(settings.get('defaultQuality', 85)))
+        self.default_quality_entry = ttk.Entry(config_frame, textvariable=self.default_quality_var, width=10)
+        self.default_quality_entry.grid(row=3, column=1, sticky=tk.W, pady=(5, 0))
+        
+        ttk.Label(config_frame, text="Hash长度:").grid(row=3, column=2, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+        self.hash_length_var = tk.StringVar(value=str(settings.get('hashNameLength', 8)))
+        self.hash_length_entry = ttk.Entry(config_frame, textvariable=self.hash_length_var, width=10)
+        self.hash_length_entry.grid(row=3, column=3, sticky=tk.W, pady=(5, 0))
         
         # 选项区域
         options_frame = ttk.LabelFrame(main_frame, text="选项", padding="10")
         options_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         self.use_gpu_var = tk.BooleanVar()
-        self.use_gpu_check = ttk.Checkbutton(options_frame, text="使用 GPU 加速（如果可用）", variable=self.use_gpu_var)
-        self.use_gpu_check.grid(row=0, column=0, sticky=tk.W)
+        self.use_gpu_check = ttk.Checkbutton(options_frame, text="使用 GPU 加速", variable=self.use_gpu_var)
+        self.use_gpu_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 20))
         
         self.use_multiprocessing_var = tk.BooleanVar(value=True)
-        self.use_multiprocessing_check = ttk.Checkbutton(options_frame, text="使用多进程并行处理", variable=self.use_multiprocessing_var)
-        self.use_multiprocessing_check.grid(row=1, column=0, sticky=tk.W)
+        self.use_multiprocessing_check = ttk.Checkbutton(options_frame, text="多进程并行", variable=self.use_multiprocessing_var)
+        self.use_multiprocessing_check.grid(row=0, column=1, sticky=tk.W)
         
         # 进度区域
         progress_frame = ttk.LabelFrame(main_frame, text="进度", padding="10")
@@ -463,7 +509,10 @@ class ImageConverterGUI:
         self.start_button.grid(row=0, column=0, padx=(0, 10))
         
         self.stop_button = ttk.Button(button_frame, text="停止", command=self.stop_conversion, state=tk.DISABLED)
-        self.stop_button.grid(row=0, column=1)
+        self.stop_button.grid(row=0, column=1, padx=(0, 10))
+        
+        self.generate_list_button = ttk.Button(button_frame, text="生成 image-list", command=self.on_generate_list)
+        self.generate_list_button.grid(row=0, column=2)
     
     def log(self, message):
         """添加日志消息"""
@@ -542,9 +591,86 @@ class ImageConverterGUI:
         except Exception as e:
             self.log(f"[WARNING] 清理临时文件时出错: {e}")
     
+    def browse_images_dir(self):
+        """浏览选择图片目录"""
+        initial_dir = PROJECT_ROOT / self.images_dir_var.get()
+        if not initial_dir.exists():
+            initial_dir = PROJECT_ROOT
+        
+        selected = filedialog.askdirectory(
+            title="选择图片目录",
+            initialdir=str(initial_dir)
+        )
+        if selected:
+            # 转换为相对路径（相对于项目根目录）
+            try:
+                rel_path = Path(selected).relative_to(PROJECT_ROOT)
+                self.images_dir_var.set(str(rel_path))
+            except ValueError:
+                # 如果无法转换为相对路径，使用绝对路径
+                self.images_dir_var.set(selected)
+    
+    def browse_image_list_dir(self):
+        """浏览选择 image-list 输出目录"""
+        initial_dir = PROJECT_ROOT / self.image_list_dir_var.get()
+        if not initial_dir.exists():
+            initial_dir = PROJECT_ROOT
+        
+        selected = filedialog.askdirectory(
+            title="选择 image-list 输出目录",
+            initialdir=str(initial_dir)
+        )
+        if selected:
+            # 转换为相对路径（相对于项目根目录）
+            try:
+                rel_path = Path(selected).relative_to(PROJECT_ROOT)
+                self.image_list_dir_var.set(str(rel_path))
+            except ValueError:
+                # 如果无法转换为相对路径，使用绝对路径
+                self.image_list_dir_var.set(selected)
+    
+    def get_config_from_gui(self) -> dict:
+        """从 GUI 获取配置并更新全局变量"""
+        global IMAGES_DIR, MAX_FILE_SIZE, MIN_SHORT_EDGE, TARGET_SHORT_EDGE
+        global DEFAULT_QUALITY, MIN_QUALITY, MAX_QUALITY, RANDOM_NAME_LENGTH
+        
+        settings = {
+            'imagesDir': self.images_dir_var.get(),
+            'imageListDir': self.image_list_dir_var.get(),
+            'maxFileSizeKB': int(self.max_file_size_var.get()),
+            'minShortEdge': int(self.min_short_edge_var.get()),
+            'targetShortEdge': int(self.target_short_edge_var.get()),
+            'defaultQuality': int(self.default_quality_var.get()),
+            'minQuality': 20,
+            'maxQuality': int(self.default_quality_var.get()),
+            'hashNameLength': int(self.hash_length_var.get()),
+        }
+        
+        # 更新全局变量
+        IMAGES_DIR = PROJECT_ROOT / settings['imagesDir']
+        MAX_FILE_SIZE = settings['maxFileSizeKB'] * 1024
+        MIN_SHORT_EDGE = settings['minShortEdge']
+        TARGET_SHORT_EDGE = settings['targetShortEdge']
+        DEFAULT_QUALITY = settings['defaultQuality']
+        MIN_QUALITY = settings['minQuality']
+        MAX_QUALITY = settings['maxQuality']
+        RANDOM_NAME_LENGTH = settings['hashNameLength']
+        
+        # 保存设置
+        save_settings(settings)
+        
+        return settings
+    
     def start_conversion(self):
         """开始转换"""
         if self.is_running:
+            return
+        
+        # 从 GUI 获取配置
+        try:
+            self.get_config_from_gui()
+        except ValueError as e:
+            messagebox.showerror("配置错误", f"请输入有效的数字: {e}")
             return
         
         if not IMAGES_DIR.exists():
@@ -558,6 +684,10 @@ class ImageConverterGUI:
         self.log_text.config(state=tk.NORMAL)
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state=tk.DISABLED)
+        
+        self.log(f"[配置] 图片目录: {IMAGES_DIR}")
+        self.log(f"[配置] 最大文件: {MAX_FILE_SIZE/1024:.0f}KB | 压缩阈值: {MIN_SHORT_EDGE}px | 目标: {TARGET_SHORT_EDGE}px")
+        self.log(f"[配置] 质量: {DEFAULT_QUALITY} | Hash长度: {RANDOM_NAME_LENGTH}")
         
         # 在新线程中运行转换
         self.process_thread = threading.Thread(target=self.run_conversion, daemon=True)
@@ -685,7 +815,7 @@ class ImageConverterGUI:
         used_names: Set[str] = set()
         for img_file in all_image_files:
             name = img_file.stem
-            if is_8digit_random(name):
+            if is_hash_name(name):
                 used_names.add(name)
         
         # 需要处理的文件列表
@@ -708,7 +838,7 @@ class ImageConverterGUI:
                 continue
             
             # 检查文件名是否已经是随机字符
-            is_random_name = is_8digit_random(original_name)
+            is_random_name = is_hash_name(original_name)
             
             # 检查文件大小和分辨率
             file_size = img_file.stat().st_size
@@ -746,35 +876,28 @@ class ImageConverterGUI:
                     if self.should_stop:
                         break
                     
-                    # 生成目标文件名
-                    if is_random_name:
-                        new_name = original_name + target_ext
-                    else:
-                        max_attempts = 1000
-                        new_name = None
-                        for _ in range(max_attempts):
-                            candidate = generate_random_name()
-                            if candidate not in used_names:
-                                new_name = candidate + target_ext
-                                used_names.add(candidate)
-                                break
-                        if not new_name:
-                            self.log(f"  [ERROR] 无法为 {img_file.name} 生成唯一文件名")
-                            continue
-                    
-                    new_path = folder_path / new_name
-                    
                     if needs_conversion:
-                        future = self.executor.submit(convert_image_worker, (img_file, new_path, use_gpu, False))
-                        futures.append((future, img_file, new_path, original_name))
+                        # 转换时先用临时文件名，转换后再计算 hash 重命名
+                        temp_name = f"_converting_{original_name}"
+                        temp_path = folder_path / (temp_name + target_ext)
+                        future = self.executor.submit(convert_image_worker, (img_file, temp_path, use_gpu, False))
+                        futures.append((future, img_file, temp_path, original_name))
                         self.active_futures.append(future)
                     else:
-                        # 只需要重命名
+                        # 只需要重命名：计算现有文件的 hash
                         if self.should_stop:
                             break
                         try:
-                            img_file.rename(new_path)
-                            self.log(f"  [OK] 重命名: {img_file.name} -> {new_path.name}")
+                            hash_name = generate_hash_name(img_file)
+                            new_path = folder_path / (hash_name + target_ext)
+                            if new_path.exists():
+                                # 相同 hash 的文件已存在，删除重复文件
+                                img_file.unlink()
+                                self.log(f"  [SKIP] 重复文件已删除: {img_file.name}")
+                            else:
+                                img_file.rename(new_path)
+                                used_names.add(hash_name)
+                                self.log(f"  [OK] 重命名: {img_file.name} -> {new_path.name}")
                             processed_count += 1
                             elapsed = time.time() - start_time
                             self.update_progress(processed_count, len(tasks), f"处理 {folder_name}", start_time, elapsed)
@@ -782,7 +905,7 @@ class ImageConverterGUI:
                             self.log(f"  [ERROR] 重命名失败 {img_file.name}: {e}")
                 
                 # 等待所有转换完成，使用as_completed以便更及时响应停止信号
-                future_to_task = {future: (img_file, new_path, original_name) for future, img_file, new_path, original_name in futures}
+                future_to_task = {future: (img_file, temp_path, original_name) for future, img_file, temp_path, original_name in futures}
                 
                 for future in as_completed(future_to_task.keys()):
                     if self.should_stop:
@@ -792,21 +915,33 @@ class ImageConverterGUI:
                                 f.cancel()
                         break
                     
-                    img_file, new_path, original_name = future_to_task[future]
+                    img_file, temp_path, original_name = future_to_task[future]
                     try:
                         success, input_path, output_path = future.result()
                         if success:
+                            # 计算转换后文件的 hash 作为最终文件名
+                            hash_name = generate_hash_name(output_path)
+                            final_path = folder_path / (hash_name + AVIF_EXT)
+                            if final_path.exists():
+                                # 相同 hash 的文件已存在，删除临时文件
+                                output_path.unlink()
+                            else:
+                                output_path.rename(final_path)
+                                used_names.add(hash_name)
                             # 删除原文件
-                            if input_path.exists() and input_path != output_path:
+                            if input_path.exists():
                                 input_path.unlink()
+                            self.log(f"  [OK] 转换: {img_file.name} -> {final_path.name}")
                             processed_count += 1
                         else:
+                            # 删除临时文件
+                            if output_path.exists():
+                                output_path.unlink()
                             self.log(f"  [ERROR] 转换失败: {img_file.name}")
                         elapsed = time.time() - start_time
                         self.update_progress(processed_count, len(tasks), f"处理 {folder_name}", start_time, elapsed)
                     except Exception as e:
                         if not self.should_stop:
-                            # 如果不是因为停止导致的异常，记录错误
                             from concurrent.futures import CancelledError
                             if not isinstance(e, CancelledError):
                                 self.log(f"  [ERROR] 处理失败 {img_file.name}: {e}")
@@ -824,41 +959,43 @@ class ImageConverterGUI:
                 if self.should_stop:
                     break
                 
-                # 生成目标文件名
-                if is_random_name:
-                    new_name = original_name + target_ext
-                else:
-                    max_attempts = 1000
-                    new_name = None
-                    for _ in range(max_attempts):
-                        candidate = generate_random_name()
-                        if candidate not in used_names:
-                            new_name = candidate + target_ext
-                            used_names.add(candidate)
-                            break
-                    if not new_name:
-                        self.log(f"  [ERROR] 无法为 {img_file.name} 生成唯一文件名")
-                        continue
-                
-                new_path = folder_path / new_name
-                
                 if needs_conversion:
-                    # 使用日志回调
+                    # 先转换到临时文件
+                    temp_name = f"_converting_{original_name}"
+                    temp_path = folder_path / (temp_name + target_ext)
+                    
                     def log_callback(msg):
                         self.log(msg)
                     
-                    if convert_to_avif(img_file, new_path, use_gpu=use_gpu, use_ffmpeg=False, log_callback=log_callback):
-                        # 删除原文件
-                        if img_file.exists() and img_file != new_path:
+                    if convert_to_avif(img_file, temp_path, use_gpu=use_gpu, use_ffmpeg=False, log_callback=log_callback):
+                        # 计算 hash 并重命名
+                        hash_name = generate_hash_name(temp_path)
+                        final_path = folder_path / (hash_name + AVIF_EXT)
+                        if final_path.exists():
+                            temp_path.unlink()
+                        else:
+                            temp_path.rename(final_path)
+                            used_names.add(hash_name)
+                        if img_file.exists():
                             img_file.unlink()
+                        self.log(f"  [OK] 转换: {img_file.name} -> {final_path.name}")
                         processed_count += 1
                     else:
+                        if temp_path.exists():
+                            temp_path.unlink()
                         self.log(f"  [ERROR] 转换失败: {img_file.name}")
                 else:
-                    # 只需要重命名
+                    # 只需要重命名：计算 hash
                     try:
-                        img_file.rename(new_path)
-                        self.log(f"  [OK] 重命名: {img_file.name} -> {new_path.name}")
+                        hash_name = generate_hash_name(img_file)
+                        new_path = folder_path / (hash_name + target_ext)
+                        if new_path.exists():
+                            img_file.unlink()
+                            self.log(f"  [SKIP] 重复文件已删除: {img_file.name}")
+                        else:
+                            img_file.rename(new_path)
+                            used_names.add(hash_name)
+                            self.log(f"  [OK] 重命名: {img_file.name} -> {new_path.name}")
                         processed_count += 1
                     except Exception as e:
                         self.log(f"  [ERROR] 重命名失败 {img_file.name}: {e}")
@@ -870,6 +1007,82 @@ class ImageConverterGUI:
         if processed_count > 0:
             avg_time = elapsed_time / processed_count if processed_count > 0 else 0
             self.log(f"  已处理 {processed_count} 个文件（总耗时 {elapsed_time:.1f} 秒，平均 {avg_time:.2f} 秒/文件）")
+    
+    def generate_image_list(self):
+        """生成 image-list 文件"""
+        self.log("\n" + "=" * 50)
+        self.log("生成 image-list 文件")
+        self.log("=" * 50)
+        
+        # 从 GUI 获取输出目录
+        output_dir = PROJECT_ROOT / self.image_list_dir_var.get()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self.log(f"输出目录: {output_dir}")
+        
+        # 获取所有子文件夹
+        folders = [f for f in IMAGES_DIR.iterdir() if f.is_dir()]
+        
+        if not folders:
+            self.log(f"未找到任何图片文件夹: {IMAGES_DIR}")
+            return
+        
+        imports = []
+        exports = []
+        
+        for folder in sorted(folders):
+            folder_name = folder.name
+            images = sorted([f.name for f in folder.iterdir() if f.suffix.lower() == AVIF_EXT])
+            
+            if not images:
+                self.log(f"  [SKIP] {folder_name}: 无图片文件")
+                continue
+            
+            # 生成变量名（驼峰命名）
+            var_name_camel = ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(folder_name.split('-')))
+            
+            # 生成单独的列表文件
+            list_file = output_dir / f"{folder_name}.ts"
+            list_content = f"// /{folder_name} 图片列表\nexport default {json.dumps(images, indent=2)};\n"
+            list_file.write_text(list_content, encoding='utf-8')
+            
+            self.log(f"  [OK] {folder_name}: {len(images)} 张图片")
+            
+            imports.append(f"import {var_name_camel} from './{folder_name}';")
+            exports.append(f"  '/{folder_name}': {var_name_camel},")
+        
+        # 生成索引文件
+        index_content = f"""/**
+ * 图片列表索引
+ * 由 python/convert_images_gui.py 自动生成
+ */
+{chr(10).join(imports)}
+
+export const imageList: Record<string, string[]> = {{
+{chr(10).join(exports)}
+}};
+
+export default imageList;
+"""
+        index_file = output_dir / "index.ts"
+        index_file.write_text(index_content, encoding='utf-8')
+        
+        self.log(f"\n✅ 已生成 image-list/ 目录")
+        self.log(f"   包含 {len(folders)} 个接口的图片列表")
+    
+    def on_generate_list(self):
+        """生成 image-list 按钮点击事件"""
+        # 从 GUI 获取配置
+        try:
+            self.get_config_from_gui()
+        except ValueError as e:
+            messagebox.showerror("配置错误", f"请输入有效的数字: {e}")
+            return
+        
+        if not IMAGES_DIR.exists():
+            messagebox.showerror("错误", f"图片目录不存在: {IMAGES_DIR}")
+            return
+        
+        self.generate_image_list()
 
 
 def main():

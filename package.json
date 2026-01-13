@@ -4,14 +4,11 @@
   "description": "随机图片API，支持部署在Cloudflare Workers/EdgeOne/ESA/Vercel Pages",
   "main": "src/index.ts",
   "scripts": {
-    "generate": "node scripts/generate-image-list.js",
-    "dev": "npm run generate && wrangler dev",
-    "deploy": "npm run generate && wrangler publish",
-    "build": "npm run generate && tsc",
-    "build:pages": "npm run generate && npm run type-check",
-    "type-check": "tsc --noEmit",
-    "prebuild": "npm run generate",
-    "predeploy": "npm run generate"
+    "dev": "wrangler pages dev ./public",
+    "deploy": "wrangler publish",
+    "build": "tsc",
+    "build:pages": "npm run type-check",
+    "type-check": "tsc --noEmit"
   },
   "keywords": [
     "random-image",

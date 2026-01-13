@@ -8,4 +8,6 @@ dist/
 .env
 .env.local
 public/images/
+images/
+python/.gui_settings.json
 
