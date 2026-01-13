@@ -8,6 +8,7 @@
     "deploy": "wrangler publish",
     "build": "tsc",
     "build:pages": "npm run type-check",
+    "build:esa": "tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit"
   },
   "keywords": [
