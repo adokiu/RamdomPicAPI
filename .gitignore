@@ -11,4 +11,9 @@ public/
 images/
 python/.gui_settings.json
 *.zip
+已处理图片/
+待处理图片/
+image-list/
+检讨*.md
+__pycache__/
 

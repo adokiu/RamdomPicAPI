@@ -2,9 +2,9 @@
  * 阿里云 ESA Pages 边缘函数入口
  * 处理所有请求，返回首页、图库或 302 重定向
  */
-import { imageConfig, imageBaseUrl } from '../config';
+import { imageConfig, adaptiveRoutes, imageBaseUrl } from '../config';
 import { imageList } from '../image-list/index';
-import { generateApiDocPage, generateGalleryPage } from './utils';
+import { generateApiDocPage, generateGalleryPage, isMobile } from './utils';
 
 /**
  * 从 image-list 获取图片列表
@@ -49,12 +49,36 @@ export default {
       return generateGalleryPage(url.origin);
     }
 
+    // 自适应路由：根据 UA 决定使用 PC 还是移动端图片列表
+    const adaptiveRoute = adaptiveRoutes[pathname];
+    if (adaptiveRoute) {
+      const ua = request.headers.get('user-agent') || '';
+      const targetPath = isMobile(ua) ? adaptiveRoute.mobile : adaptiveRoute.pc;
+      const targetConfig = imageConfig[targetPath];
+      const images = getImageList(targetPath);
+      if (images.length === 0) {
+        return new Response(JSON.stringify({ error: 'No images found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      const randomImage = images[Math.floor(Math.random() * images.length)];
+      const imageUrl = `${imageBaseUrl}${targetConfig.dir}/${randomImage}`;
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': imageUrl,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      });
+    }
+
     // API 路径匹配
     const configItem = imageConfig[pathname as keyof typeof imageConfig];
     if (!configItem) {
       return new Response(JSON.stringify({ 
         error: 'Path not found',
-        availablePaths: Object.keys(imageConfig)
+        availablePaths: [...Object.keys(imageConfig), ...Object.keys(adaptiveRoutes)]
       }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },

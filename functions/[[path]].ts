@@ -3,9 +3,9 @@
  * 适用于 Cloudflare Pages / EdgeOne Pages / ESA Pages
  * 从预生成的 image-list.ts 读取图片列表，302 重定向到图片资源站
  */
-import { imageConfig, imageBaseUrl } from '../config';
+import { imageConfig, adaptiveRoutes, imageBaseUrl } from '../config';
 import { imageList } from '../image-list/index';
-import { generateApiDocPage, generateGalleryPage } from '../src/utils';
+import { generateApiDocPage, generateGalleryPage, isMobile } from '../src/utils';
 
 /**
  * 从 image-list.ts 获取图片列表
@@ -13,6 +13,8 @@ import { generateApiDocPage, generateGalleryPage } from '../src/utils';
 function getImageList(pathKey: string): string[] {
   return imageList[pathKey] || [];
 }
+
+const UMAMI_WEBSITE_ID = '42dd4d2a-b57c-4021-8fb0-ad9373348ca7';
 
 export async function onRequest(
   context: {
@@ -23,9 +25,10 @@ export async function onRequest(
         fetch: (request: Request) => Promise<Response>;
       };
     };
+    waitUntil?: (promise: Promise<any>) => void;
   }
 ): Promise<Response> {
-  const { request, params, env } = context;
+  const { request, params, env, waitUntil } = context;
   
   if (request.method !== 'GET') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -67,13 +70,71 @@ export async function onRequest(
   if (pathname === '/gallery' || pathSegments[0] === 'gallery') {
     return generateGalleryPage(url.origin);
   }
-  
+
+  function trackUmami(req: Request): Promise<void> {
+    return new Promise((resolve) => {
+      try {
+        const u = new URL(req.url);
+        const payload = {
+          type: 'event',
+          payload: {
+            website: UMAMI_WEBSITE_ID,
+            hostname: u.hostname,
+            url: u.pathname,
+            referrer: req.headers.get('referer') || '',
+            language: req.headers.get('accept-language') || '',
+            title: u.pathname,
+          },
+        };
+        fetch('https://umami.2o.nz/api/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': req.headers.get('user-agent') || '',
+          },
+          body: JSON.stringify(payload),
+        }).then(() => resolve()).catch(() => resolve());
+      } catch (e) {
+        resolve();
+      }
+    });
+  }
+
+  // 自适应路由：根据 UA 决定使用 PC 还是移动端图片列表
+  const adaptiveRoute = adaptiveRoutes[paramPath];
+  if (adaptiveRoute) {
+    const ua = request.headers.get('user-agent') || '';
+    const targetPath = isMobile(ua) ? adaptiveRoute.mobile : adaptiveRoute.pc;
+    const targetConfig = imageConfig[targetPath];
+    const images = getImageList(targetPath);
+    if (images.length === 0) {
+      return new Response(JSON.stringify({ error: 'No images found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (waitUntil) {
+      waitUntil(trackUmami(request));
+    } else {
+      trackUmami(request);
+    }
+    const randomImage = images[Math.floor(Math.random() * images.length)];
+    const imageUrl = `${imageBaseUrl}${targetConfig.dir}/${randomImage}`;
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': imageUrl,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    });
+  }
+
   // API 路径匹配
   const configItem = imageConfig[paramPath as keyof typeof imageConfig];
   if (!configItem) {
     return new Response(JSON.stringify({ 
       error: 'Path not found',
-      availablePaths: Object.keys(imageConfig)
+      availablePaths: [...Object.keys(imageConfig), ...Object.keys(adaptiveRoutes)]
     }), {
       status: 404,
       headers: { 'Content-Type': 'application/json' },
@@ -92,10 +153,15 @@ export async function onRequest(
     });
   }
   
+  if (waitUntil) {
+    waitUntil(trackUmami(request));
+  } else {
+    trackUmami(request);
+  }
+
   // 随机选择并 302 重定向到图片资源站
   const randomImage = images[Math.floor(Math.random() * images.length)];
   const imageUrl = `${imageBaseUrl}${configItem.dir}/${randomImage}`;
-  
   return new Response(null, {
     status: 302,
     headers: {
