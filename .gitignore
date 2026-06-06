@@ -7,7 +7,6 @@ dist/
 .DS_Store
 .env
 .env.local
-public/
 images/
 python/.gui_settings.json
 *.zip

@@ -7,7 +7,7 @@
     "dev": "wrangler pages dev ./public",
     "deploy": "wrangler publish",
     "build": "tsc",
-    "build:pages": "npm run type-check",
+    "build:pages": "npm run build:esa && node scripts/build-html.mjs",
     "build:esa": "tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit"
   },
