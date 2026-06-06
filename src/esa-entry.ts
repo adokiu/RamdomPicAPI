@@ -2,9 +2,9 @@
  * 阿里云 ESA Pages 边缘函数入口
  * 处理所有请求，返回首页、图库或 302 重定向
  */
-import { imageConfig, adaptiveRoutes, imageBaseUrl } from '../config';
-import { imageList } from '../image-list/index';
-import { generateApiDocPage, generateGalleryPage, isMobile } from './utils';
+import { imageConfig, adaptiveRoutes, imageBaseUrl } from '../config.js';
+import { imageList } from '../image-list/index.js';
+import { generateApiDocPage, generateGalleryPage, isMobile } from './utils.js';
 
 /**
  * 从 image-list 获取图片列表

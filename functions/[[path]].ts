@@ -3,9 +3,9 @@
  * 适用于 Cloudflare Pages / EdgeOne Pages / ESA Pages
  * 从预生成的 image-list.ts 读取图片列表，302 重定向到图片资源站
  */
-import { imageConfig, adaptiveRoutes, imageBaseUrl } from '../config';
-import { imageList } from '../image-list/index';
-import { generateApiDocPage, generateGalleryPage, isMobile } from '../src/utils';
+import { imageConfig, adaptiveRoutes, imageBaseUrl } from '../config.js';
+import { imageList } from '../image-list/index.js';
+import { generateApiDocPage, generateGalleryPage, isMobile } from '../src/utils.js';
 
 /**
  * 从 image-list.ts 获取图片列表

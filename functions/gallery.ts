@@ -1,7 +1,7 @@
 /**
  * 图库页面路由处理
  */
-import { generateGalleryPage } from '../src/utils';
+import { generateGalleryPage } from '../src/utils.js';
 
 export async function onRequest(
   context: {

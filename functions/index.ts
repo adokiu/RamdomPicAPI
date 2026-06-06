@@ -2,7 +2,7 @@
  * Cloudflare Pages Functions - 根路径处理
  * 当访问域名根路径时，显示 API 介绍页面
  */
-import { generateApiDocPage } from '../src/utils';
+import { generateApiDocPage } from '../src/utils.js';
 
 export async function onRequest(
   context: {

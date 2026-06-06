@@ -1,10 +1,10 @@
 /**
  * 通用工具函数
  */
-import { imageConfig, pcImageConfig, mobileImageConfig, adaptiveRoutes, imageBaseUrl } from '../config';
-import { imageList } from '../image-list/index';
-import { indexTemplate } from './templates/index';
-import { galleryTemplate } from './templates/gallery';
+import { imageConfig, pcImageConfig, mobileImageConfig, adaptiveRoutes, imageBaseUrl } from '../config.js';
+import { imageList } from '../image-list/index.js';
+import { indexTemplate } from './templates/index.js';
+import { galleryTemplate } from './templates/gallery.js';
 
 /**
  * 根据 User-Agent 判断是否为移动端
