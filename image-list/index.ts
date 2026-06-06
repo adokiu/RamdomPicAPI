@@ -1,13 +1,10 @@
-/**
- * 图片列表索引
- * 由 python/convert_images_gui.py 自动生成
- */
-import acgFj from './acg-fj';
-import fj from './fj';
-import mbMiku from './mb-miku';
-import pcLty from './pc-lty';
-import pcMiku from './pc-miku';
-import pcSr from './pc-sr';
+﻿
+import acgFj from './acg-fj.js';
+import fj from './fj.js';
+import mbMiku from './mb-miku.js';
+import pcLty from './pc-lty.js';
+import pcMiku from './pc-miku.js';
+import pcSr from './pc-sr.js';
 
 export const imageList: Record<string, string[]> = {
   '/acg-fj': acgFj,

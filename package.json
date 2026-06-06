@@ -1,6 +1,7 @@
 {
   "name": "random-pic-api",
   "version": "1.0.0",
+  "type": "module",
   "description": "随机图片API，支持部署在Cloudflare Workers/EdgeOne/ESA/Vercel Pages",
   "main": "src/index.ts",
   "scripts": {
