@@ -1,5 +1,5 @@
 node_modules/
-python/
+
 dist/
 .wrangler/
 .vercel/
@@ -8,10 +8,10 @@ dist/
 .env
 .env.local
 images/
-python/.gui_settings.json
+.python/
+scripts/
 *.zip
 已处理图片/
 待处理图片/
-检讨*.md
 __pycache__/
 
