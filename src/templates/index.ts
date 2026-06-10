@@ -769,7 +769,7 @@ export function indexTemplate(
         <span class="metric-item"><span class="metric-num">${totalImageCount.toLocaleString()}</span>  张图片</span>
         <a class="metric-item" href="https://blog.2o.nz" target="_blank" rel="noopener" style="text-decoration:none;"><span class="metric-num">我的博客</span></a>
       </div>
-      <p class="header-note">中国大陆 EdgeOne，港澳台及海外 Cloudflare。增加图片，版权问题联系 x@coci.cc</p>
+      <p class="header-note">中国大陆 EdgeOne / 阿里云ESA，港澳台及海外 Cloudflare。增加图片，版权问题联系 x@coci.cc</p>
       <a href="/gallery" class="gallery-btn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7"></rect>
@@ -803,6 +803,9 @@ export function indexTemplate(
         <span class="supporter-logos">
           <a href="https://cloud.tencent.com/product/teo" target="_blank" rel="noopener" title="腾讯云 EdgeOne">
             <img class="supporter-logo" src="/icons/foot-edgeone.png" alt="腾讯云EdgeOne" />
+          </a>
+          <a href="https://www.alibabacloud.com/zh/product/esa" target="_blank" rel="noopener" title="阿里云 ESA">
+            <img class="supporter-logo" src="/icons/foot-esa.png" alt="阿里云ESA" />
           </a>
           <a href="https://www.cloudflare.com" target="_blank" rel="noopener" title="Cloudflare">
             <img class="supporter-logo" src="/icons/foot-cloudflare.png" alt="Cloudflare" />
