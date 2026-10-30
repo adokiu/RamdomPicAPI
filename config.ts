@@ -5,7 +5,7 @@
  */
 
 // 图片资源站 URL（不带末尾斜杠）
-export const imageBaseUrl = 'https://img-doki.coci.cc';
+export const imageBaseUrl = 'https://img-sources.adokiu.com';
 
 // PC 端接口配置
 export const pcImageConfig = {
